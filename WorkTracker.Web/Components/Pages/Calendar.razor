@@ -10,7 +10,7 @@
 <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
     <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" OnClick="PrevMonth" />
     <MudText Typo="Typo.h6" Style="font-weight:600">
-        @new DateTime(_year, _month, 1).ToString("MMMM yyyy", new System.Globalization.CultureInfo("it-IT"))
+        @(new DateTime(_year, _month, 1).ToString("MMMM yyyy", new System.Globalization.CultureInfo("it-IT")))
     </MudText>
     <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" OnClick="NextMonth" />
 </MudStack>
