@@ -1,0 +1,22 @@
+/* WorkTracker – stili minimi, MudBlazor fa il resto */
+
+* {
+    font-family: 'Inter', sans-serif;
+}
+
+/* Rimuove il padding di default sul body */
+body {
+    background: #F8FAFC;
+    margin: 0;
+}
+
+/* Celle calendario cliccabili */
+.mud-paper:hover {
+    filter: brightness(0.97);
+    transition: filter 0.1s ease;
+}
+
+/* Assicura che i dialog siano sopra tutto */
+.mud-overlay {
+    z-index: 1300;
+}

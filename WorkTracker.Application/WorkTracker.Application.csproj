@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WorkTracker.Domain\WorkTracker.Domain.csproj" />
+    <ProjectReference Include="..\WorkTracker.Infrastructure\WorkTracker.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

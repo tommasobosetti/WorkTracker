@@ -1,0 +1,94 @@
+@page "/riepilogo"
+@using WorkTracker.Application.DTOs
+@using WorkTracker.Application.Interfaces
+@using WorkTracker.Domain.Enums
+@using WorkTracker.Web.Components.Shared
+@inject IWorkDayService WorkDayService
+@rendermode InteractiveServer
+
+<PageTitle>Riepilogo – WorkTracker</PageTitle>
+
+<MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+    <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" OnClick="PrevMonth" />
+    <MudText Typo="Typo.h6" Style="font-weight:600">
+        @new DateTime(_year, _month, 1).ToString("MMMM yyyy", new System.Globalization.CultureInfo("it-IT"))
+    </MudText>
+    <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" OnClick="NextMonth" />
+</MudStack>
+
+@if (_stats is null)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <!-- Ore lavorate -->
+    <MudPaper Class="pa-4 mb-3" Elevation="0" Style="border-radius:16px">
+        <MudText Typo="Typo.subtitle2" Color="Color.Secondary">Ore lavorate</MudText>
+        <MudText Typo="Typo.h4" Style="font-weight:700">@FormatTime(_stats.TotalWorkedTime)</MudText>
+        @if (_stats.TotalLeaveTime > TimeSpan.Zero)
+        {
+            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                + @FormatTime(_stats.TotalLeaveTime) di permessi
+            </MudText>
+        }
+    </MudPaper>
+
+    <!-- Contatori giornate -->
+    <MudGrid Spacing="2" Class="mb-3">
+        <StatCard Label="Ufficio"      Value="@_stats.WorkDays"       Color="#DBEAFE" Icon="@Icons.Material.Filled.Business" />
+        <StatCard Label="Smart W."     Value="@_stats.SmartWorkingDays" Color="#EDE9FE" Icon="@Icons.Material.Filled.Home" />
+        <StatCard Label="Ferie"        Value="@_stats.VacationDays"   Color="#DCFCE7" Icon="@Icons.Material.Filled.BeachAccess" />
+        <StatCard Label="Malattia"     Value="@_stats.IllnessDays"    Color="#FEF9C3" Icon="@Icons.Material.Filled.LocalHospital" />
+    </MudGrid>
+
+    <!-- Elenco giorni -->
+    <MudPaper Class="pa-4" Elevation="0" Style="border-radius:16px">
+        <MudText Typo="Typo.subtitle1" Style="font-weight:600" Class="mb-3">Dettaglio giorni</MudText>
+
+        @if (!_days.Any())
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Nessun giorno registrato questo mese.</MudText>
+        }
+        else
+        {
+            @foreach (var day in _days.OrderByDescending(d => d.Date))
+            {
+                <DayRow Day="day" OnClick="() => Nav.NavigateTo($"/giorno/{day.Date:yyyy-MM-dd}")" />
+            }
+        }
+    </MudPaper>
+}
+
+@code {
+    private int _year = DateTime.Today.Year;
+    private int _month = DateTime.Today.Month;
+    private MonthSummaryDto? _stats;
+    private List<WorkDaySummaryDto> _days = [];
+
+    [Inject] private NavigationManager Nav { get; set; } = null!;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _stats = null;
+        _stats = await WorkDayService.GetMonthStatsAsync(_year, _month);
+        _days  = await WorkDayService.GetMonthSummariesAsync(_year, _month);
+    }
+
+    private async Task PrevMonth()
+    {
+        if (_month == 1) { _month = 12; _year--; } else _month--;
+        await LoadAsync();
+    }
+
+    private async Task NextMonth()
+    {
+        if (_month == 12) { _month = 1; _year++; } else _month++;
+        await LoadAsync();
+    }
+
+    private static string FormatTime(TimeSpan t) =>
+        $"{(int)t.TotalHours}h {t.Minutes:D2}m";
+}

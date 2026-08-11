@@ -1,0 +1,147 @@
+@page "/calendario"
+@using WorkTracker.Application.DTOs
+@using WorkTracker.Application.Interfaces
+@using WorkTracker.Domain.Enums
+@inject IWorkDayService WorkDayService
+@rendermode InteractiveServer
+
+<PageTitle>Calendario – WorkTracker</PageTitle>
+
+<MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+    <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" OnClick="PrevMonth" />
+    <MudText Typo="Typo.h6" Style="font-weight:600">
+        @new DateTime(_year, _month, 1).ToString("MMMM yyyy", new System.Globalization.CultureInfo("it-IT"))
+    </MudText>
+    <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" OnClick="NextMonth" />
+</MudStack>
+
+@if (_days is null)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <!-- Grid header -->
+    <MudGrid Spacing="1" Class="mb-1">
+        @foreach (var h in new[] { "Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom" })
+        {
+            <MudItem xs="1" Style="min-width:calc(100%/7);max-width:calc(100%/7)">
+                <MudText Typo="Typo.caption" Align="Align.Center" Color="Color.Secondary">@h</MudText>
+            </MudItem>
+        }
+    </MudGrid>
+
+    <!-- Day cells -->
+    <MudGrid Spacing="1">
+        @foreach (var cell in CalendarCells())
+        {
+            <MudItem xs="1" Style="min-width:calc(100%/7);max-width:calc(100%/7)">
+                @if (cell is null)
+                {
+                    <div style="height:48px" />
+                }
+                else
+                {
+                    var summary = _days.FirstOrDefault(d => d.Date == cell);
+                    var isToday = cell == DateOnly.FromDateTime(DateTime.Today);
+                    <MudPaper Elevation="0"
+                              Class="pa-1 text-center"
+                              Style="@CellStyle(summary?.Type, isToday)"
+                              @onclick="() => NavigateToDay(cell.Value)">
+                        <MudText Typo="Typo.body2" Style="@(isToday ? "font-weight:700" : "")">
+                            @cell.Value.Day
+                        </MudText>
+                        @if (summary is not null)
+                        {
+                            <MudText Typo="Typo.caption" Style="font-size:9px;line-height:1">
+                                @FormatTime(summary.WorkedTime)
+                            </MudText>
+                        }
+                    </MudPaper>
+                }
+            </MudItem>
+        }
+    </MudGrid>
+
+    <!-- Legend -->
+    <MudStack Row Wrap="Wrap.Wrap" Spacing="2" Class="mt-4">
+        @foreach (var t in Enum.GetValues<DayType>())
+        {
+            <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                <div style="width:12px;height:12px;border-radius:3px;background:@DayTypeBg(t)"></div>
+                <MudText Typo="Typo.caption">@DayTypeLabel(t)</MudText>
+            </MudStack>
+        }
+    </MudStack>
+}
+
+@code {
+    private int _year = DateTime.Today.Year;
+    private int _month = DateTime.Today.Month;
+    private List<WorkDaySummaryDto>? _days;
+
+    [Inject] private NavigationManager Nav { get; set; } = null!;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _days = null;
+        _days = await WorkDayService.GetMonthSummariesAsync(_year, _month);
+    }
+
+    private async Task PrevMonth()
+    {
+        if (_month == 1) { _month = 12; _year--; } else _month--;
+        await LoadAsync();
+    }
+
+    private async Task NextMonth()
+    {
+        if (_month == 12) { _month = 1; _year++; } else _month++;
+        await LoadAsync();
+    }
+
+    private void NavigateToDay(DateOnly date) =>
+        Nav.NavigateTo($"/giorno/{date:yyyy-MM-dd}");
+
+    private IEnumerable<DateOnly?> CalendarCells()
+    {
+        var first = new DateOnly(_year, _month, 1);
+        var offset = ((int)first.DayOfWeek + 6) % 7; // Monday = 0
+        var daysInMonth = DateTime.DaysInMonth(_year, _month);
+
+        for (int i = 0; i < offset; i++) yield return null;
+        for (int d = 1; d <= daysInMonth; d++) yield return new DateOnly(_year, _month, d);
+    }
+
+    private static string FormatTime(TimeSpan t) =>
+        t == TimeSpan.Zero ? "" : $"{(int)t.TotalHours}h{t.Minutes:D2}";
+
+    private static string CellStyle(DayType? type, bool isToday)
+    {
+        var bg = type is not null ? DayTypeBg(type.Value) : "transparent";
+        var border = isToday ? "2px solid #2563EB" : "1px solid #E2E8F0";
+        return $"height:48px;cursor:pointer;border-radius:8px;background:{bg};border:{border}";
+    }
+
+    private static string DayTypeBg(DayType t) => t switch
+    {
+        DayType.WorkDay => "#DBEAFE",
+        DayType.SmartWorking => "#EDE9FE",
+        DayType.Vacation => "#DCFCE7",
+        DayType.Illness => "#FEF9C3",
+        DayType.Holiday => "#E0F2FE",
+        _ => "transparent"
+    };
+
+    private static string DayTypeLabel(DayType t) => t switch
+    {
+        DayType.WorkDay => "Ufficio",
+        DayType.SmartWorking => "Smart Working",
+        DayType.Vacation => "Ferie",
+        DayType.Illness => "Malattia",
+        DayType.Holiday => "Festività",
+        _ => t.ToString()
+    };
+}

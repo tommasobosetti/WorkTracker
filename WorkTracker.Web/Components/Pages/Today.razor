@@ -1,0 +1,233 @@
+@page "/"
+@using WorkTracker.Application.Interfaces
+@using WorkTracker.Domain.Enums
+@using WorkTracker.Domain.Models
+@inject IWorkDayService WorkDayService
+@inject ISnackbar Snackbar
+@rendermode InteractiveServer
+
+<PageTitle>Oggi – WorkTracker</PageTitle>
+
+@if (_day is null)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <!-- Day type badge + quick switch -->
+    <MudPaper Class="pa-4 mb-4" Elevation="0" Style="border-radius:16px">
+        <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+            <MudStack Spacing="0">
+                <MudText Typo="Typo.h5" Style="font-weight:600">Oggi</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    @DateTime.Now.ToString("dddd d MMMM yyyy", new System.Globalization.CultureInfo("it-IT"))
+                </MudText>
+            </MudStack>
+            <MudChip T="string" Color="@DayTypeColor(_day.Type)" Size="Size.Medium">
+                @DayTypeLabel(_day.Type)
+            </MudChip>
+        </MudStack>
+
+        <!-- Quick type switch -->
+        <MudButtonGroup Class="mt-3" Size="Size.Small" Variant="Variant.Outlined">
+            @foreach (var t in Enum.GetValues<DayType>())
+            {
+                <MudButton Color="@(_day.Type == t ? Color.Primary : Color.Default)"
+                           OnClick="() => SetTypeAsync(t)">
+                    @DayTypeLabel(t)
+                </MudButton>
+            }
+        </MudButtonGroup>
+    </MudPaper>
+
+    <!-- Stamp button -->
+    @if (_day.Type is DayType.WorkDay or DayType.SmartWorking)
+    {
+        <MudPaper Class="pa-6 mb-4 text-center" Elevation="0" Style="border-radius:16px">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Size="Size.Large"
+                       StartIcon="@Icons.Material.Filled.Fingerprint"
+                       OnClick="StampNowAsync"
+                       FullWidth="true"
+                       Style="height:64px;font-size:1.1rem;border-radius:12px">
+                Timbra ora — @DateTime.Now.ToString("HH:mm")
+            </MudButton>
+
+            <!-- Stamp list -->
+            @if (_day.Stamps.Any())
+            {
+                <MudDivider Class="my-3" />
+                <MudText Typo="Typo.subtitle2" Align="Align.Left" Class="mb-2">Timbrature</MudText>
+                <MudStack Spacing="1">
+                    @foreach (var stamp in _day.Stamps.OrderBy(s => s.Time))
+                    {
+                        <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudText Typo="Typo.body1">@stamp.Time.ToString("HH:mm")</MudText>
+                            <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                           Size="Size.Small"
+                                           Color="Color.Error"
+                                           OnClick="() => DeleteStampAsync(stamp.Id)" />
+                        </MudStack>
+                    }
+                </MudStack>
+
+                <MudDivider Class="my-3" />
+                <MudStack Row Justify="Justify.SpaceBetween">
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Ore lavorate</MudText>
+                    <MudText Typo="Typo.body1" Style="font-weight:600">
+                        @FormatTime(_day.WorkedTime)
+                    </MudText>
+                </MudStack>
+            }
+        </MudPaper>
+
+        <!-- Leave slots -->
+        <MudPaper Class="pa-4 mb-4" Elevation="0" Style="border-radius:16px">
+            <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600">Permessi orari</MudText>
+                <MudIconButton Icon="@Icons.Material.Filled.Add"
+                               Color="Color.Primary"
+                               OnClick="OpenAddLeaveDialog" />
+            </MudStack>
+
+            @if (!_day.LeaveSlots.Any())
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Nessun permesso oggi</MudText>
+            }
+            else
+            {
+                @foreach (var slot in _day.LeaveSlots)
+                {
+                    <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-1">
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.body1">
+                                @slot.From.ToString("HH:mm") – @slot.To.ToString("HH:mm")
+                            </MudText>
+                            @if (!string.IsNullOrEmpty(slot.Reason))
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@slot.Reason</MudText>
+                            }
+                        </MudStack>
+                        <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                       Size="Size.Small"
+                                       Color="Color.Error"
+                                       OnClick="() => DeleteLeaveSlotAsync(slot.Id)" />
+                    </MudStack>
+                }
+            }
+        </MudPaper>
+    }
+
+    <!-- Notes -->
+    <MudPaper Class="pa-4" Elevation="0" Style="border-radius:16px">
+        <MudTextField @bind-Value="_day.Notes"
+                      Label="Note"
+                      Variant="Variant.Outlined"
+                      Lines="2"
+                      FullWidth="true"
+                      Adornment="Adornment.End"
+                      AdornmentIcon="@Icons.Material.Filled.Save"
+                      OnAdornmentClick="SaveNotesAsync" />
+    </MudPaper>
+}
+
+<!-- Add leave dialog -->
+<MudDialog @bind-IsVisible="_leaveDialogOpen">
+    <TitleContent>Aggiungi permesso</TitleContent>
+    <DialogContent>
+        <MudStack>
+            <MudTimePicker Label="Dalle" @bind-Time="_leaveFrom" AmPm="false" />
+            <MudTimePicker Label="Alle" @bind-Time="_leaveTo" AmPm="false" />
+            <MudTextField @bind-Value="_leaveReason" Label="Motivo (opzionale)" Variant="Variant.Outlined" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _leaveDialogOpen = false">Annulla</MudButton>
+        <MudButton Color="Color.Primary" OnClick="AddLeaveSlotAsync">Salva</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private WorkDay? _day;
+    private bool _leaveDialogOpen = false;
+    private TimeSpan? _leaveFrom;
+    private TimeSpan? _leaveTo;
+    private string? _leaveReason;
+
+    protected override async Task OnInitializedAsync() =>
+        _day = await WorkDayService.GetOrCreateTodayAsync();
+
+    private async Task StampNowAsync()
+    {
+        await WorkDayService.StampNowAsync();
+        _day = await WorkDayService.GetOrCreateTodayAsync();
+        Snackbar.Add("Timbratura registrata", Severity.Success);
+    }
+
+    private async Task DeleteStampAsync(int id)
+    {
+        await WorkDayService.DeleteStampAsync(id);
+        _day = await WorkDayService.GetOrCreateTodayAsync();
+    }
+
+    private async Task SetTypeAsync(DayType type)
+    {
+        await WorkDayService.SetDayTypeAsync(_day!.Date, type);
+        _day = await WorkDayService.GetByDateAsync(_day.Date);
+    }
+
+    private void OpenAddLeaveDialog()
+    {
+        _leaveFrom = null; _leaveTo = null; _leaveReason = null;
+        _leaveDialogOpen = true;
+    }
+
+    private async Task AddLeaveSlotAsync()
+    {
+        if (_leaveFrom is null || _leaveTo is null) return;
+        await WorkDayService.AddLeaveSlotAsync(
+            _day!.Date,
+            TimeOnly.FromTimeSpan(_leaveFrom.Value),
+            TimeOnly.FromTimeSpan(_leaveTo.Value),
+            _leaveReason);
+        _day = await WorkDayService.GetOrCreateTodayAsync();
+        _leaveDialogOpen = false;
+        Snackbar.Add("Permesso aggiunto", Severity.Success);
+    }
+
+    private async Task DeleteLeaveSlotAsync(int id)
+    {
+        await WorkDayService.DeleteLeaveSlotAsync(id);
+        _day = await WorkDayService.GetOrCreateTodayAsync();
+    }
+
+    private async Task SaveNotesAsync()
+    {
+        await WorkDayService.SetDayTypeAsync(_day!.Date, _day.Type, _day.Notes);
+        Snackbar.Add("Note salvate", Severity.Success);
+    }
+
+    private static string FormatTime(TimeSpan t) =>
+        $"{(int)t.TotalHours:D2}:{t.Minutes:D2}";
+
+    private static Color DayTypeColor(DayType t) => t switch
+    {
+        DayType.WorkDay => Color.Primary,
+        DayType.SmartWorking => Color.Secondary,
+        DayType.Vacation => Color.Success,
+        DayType.Illness => Color.Warning,
+        DayType.Holiday => Color.Info,
+        _ => Color.Default
+    };
+
+    private static string DayTypeLabel(DayType t) => t switch
+    {
+        DayType.WorkDay => "Ufficio",
+        DayType.SmartWorking => "Smart W.",
+        DayType.Vacation => "Ferie",
+        DayType.Illness => "Malattia",
+        DayType.Holiday => "Festività",
+        _ => t.ToString()
+    };
+}

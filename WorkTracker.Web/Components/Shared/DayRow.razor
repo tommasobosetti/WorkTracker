@@ -1,0 +1,41 @@
+@* Shared/DayRow.razor - riga giorno riutilizzabile in elenchi *@
+@using WorkTracker.Application.DTOs
+@using WorkTracker.Domain.Enums
+
+<MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween"
+          Class="py-2" Style="border-bottom:1px solid #F1F5F9;cursor:pointer"
+          @onclick="OnClick">
+    <MudStack Spacing="0">
+        <MudText Typo="Typo.body1">
+            @Day.Date.ToString("ddd d MMM", new System.Globalization.CultureInfo("it-IT"))
+        </MudText>
+        <MudText Typo="Typo.caption" Color="Color.Secondary">
+            @DayTypeLabel(Day.Type)
+            @if (Day.StampCount > 0)
+            {
+                <text> · @Day.StampCount timbrature</text>
+            }
+        </MudText>
+    </MudStack>
+    <MudText Typo="Typo.body2" Style="font-weight:600">
+        @(Day.WorkedTime > TimeSpan.Zero ? FormatTime(Day.WorkedTime) : "–")
+    </MudText>
+</MudStack>
+
+@code {
+    [Parameter, EditorRequired] public WorkDaySummaryDto Day { get; set; } = null!;
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    private static string FormatTime(TimeSpan t) =>
+        $"{(int)t.TotalHours}h {t.Minutes:D2}m";
+
+    private static string DayTypeLabel(DayType t) => t switch
+    {
+        DayType.WorkDay     => "Ufficio",
+        DayType.SmartWorking => "Smart Working",
+        DayType.Vacation    => "Ferie",
+        DayType.Illness     => "Malattia",
+        DayType.Holiday     => "Festività",
+        _                   => t.ToString()
+    };
+}

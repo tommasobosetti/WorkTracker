@@ -1,0 +1,17 @@
+@* Shared/StatCard.razor - piccola card statistica riutilizzabile *@
+
+<MudItem xs="6">
+    <MudPaper Elevation="0" Class="pa-3" Style="@($"border-radius:12px;background:{Color}")">
+        <MudStack Spacing="0">
+            <MudText Typo="Typo.h5" Style="font-weight:700">@Value</MudText>
+            <MudText Typo="Typo.caption">@Label</MudText>
+        </MudStack>
+    </MudPaper>
+</MudItem>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter, EditorRequired] public int Value { get; set; }
+    [Parameter] public string Color { get; set; } = "#F1F5F9";
+    [Parameter] public string Icon { get; set; } = "";
+}
